@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS ELB & GCP Load Balancer Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ff9a56 0%, #ffad56 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.2em;
+        }
+
+        .cloud-selector {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding: 30px;
+            background: #f8fafc;
+        }
+
+        .cloud-tab {
+            background: white;
+            border: 2px solid #e2e8f0;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+
+        .cloud-tab.active {
+            border-color: #4f46e5;
+            background: #4f46e5;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79,70,229,0.3);
+        }
+
+        .cloud-tab:hover:not(.active) {
+            border-color: #4f46e5;
+            transform: translateY(-1px);
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .cloud-section {
+            display: none;
+        }
+
+        .cloud-section.active {
+            display: block;
+        }
+
+        .architecture-grid {
+            display: grid;
+            grid-template-columns: 1fr 300px 1fr;
+            gap: 30px;
+            align-items: center;
+            margin: 30px 0;
+            background: #f8fafc;
+            padding: 30px;
+            border-radius: 15px;
+        }
+
+        .clients-section {
+            text-align: center;
+        }
+
+        .load-balancer-section {
+            background: linear-gradient(135deg, #ff6b6b, #feca57);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 15px 30px rgba(255,107,107,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .load-balancer-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            transform: rotate(45deg);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) rotate(45deg); }
+        }
+
+        .lb-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .lb-type {
+            font-size: 0.9em;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .lb-algorithm {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            margin-top: 10px;
+            font-size: 0.8em;
+            position: relative;
+            z-index: 1;
+        }
+
+        .servers-section {
+            text-align: center;
+        }
+
+        .server-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .server {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .server:hover {
+            border-color: #4f46e5;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(79,70,229,0.2);
+        }
+
+        .server.active {
+            border-color: #10b981;
+            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+            animation: pulse 0.5s ease;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .server.unhealthy {
+            border-color: #ef4444;
+            background: linear-gradient(135deg, #fef2f2, #fecaca);
+        }
+
+        .server-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .server-status {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .server-status.healthy {
+            background: #10b981;
+            box-shadow: 0 0 10px rgba(16,185,129,0.5);
+        }
+
+        .server-status.unhealthy {
+            background: #ef4444;
+            box-shadow: 0 0 10px rgba(239,68,68,0.5);
+        }
+
+        .server-status.healthy::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: #10b981;
+            animation: ping 2s infinite;
+        }
+
+        @keyframes ping {
+            75%, 100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        .server-details {
+            font-size: 0.85em;
+            color: #64748b;
+            line-height: 1.4;
+        }
+
+        .load-bar {
+            width: 100%;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            margin: 8px 0;
+            overflow: hidden;
+        }
+
+        .load-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #34d399);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .load-fill.warning {
+            background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        }
+
+        .load-fill.danger {
+            background: linear-gradient(90deg, #ef4444, #f87171);
+        }
+
+        .controls-section {
+            background: #f1f5f9;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+        }
+
+        .controls-header {
+            text-align: center;
+            margin-bottom: 25px;
+            color: #1e293b;
+        }
+
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(79,70,229,0.3);
+        }
+
+        .action-btn:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .aws-btn {
+            background: linear-gradient(135deg, #ff9900, #ff6600);
+        }
+
+        .aws-btn:hover {
+            box-shadow: 0 8px 20px rgba(255,153,0,0.3);
+        }
+
+        .gcp-btn {
+            background: linear-gradient(135deg, #4285f4, #34a853);
+        }
+
+        .gcp-btn:hover {
+            box-shadow: 0 8px 20px rgba(66,133,244,0.3);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+        }
+
+        .metric-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 25px 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            border-color: #4f46e5;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79,70,229,0.1);
+        }
+
+        .metric-value {
+            font-size: 2.2em;
+            font-weight: bold;
+            color: #4f46e5;
+            margin-bottom: 8px;
+        }
+
+        .metric-label {
+            color: #64748b;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .config-section {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 25px;
+            border-radius: 15px;
+            margin-top: 30px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .config-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .config-tabs {
+            display: flex;
+            gap: 10px;
+        }
+
+        .config-tab {
+            background: #374151;
+            color: #d1d5db;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .config-tab.active {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .config-content {
+            background: #111827;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.85em;
+            line-height: 1.6;
+        }
+
+        .config-content pre {
+            white-space: pre-wrap;
+            margin: 0;
+        }
+
+        .log-section {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 25px;
+            border-radius: 15px;
+            margin-top: 30px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .log-header {
+            color: white;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+
+        .log-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .log-entry {
+            margin-bottom: 6px;
+            padding: 2px 0;
+            font-size: 0.85em;
+            line-height: 1.4;
+        }
+
+        .log-timestamp {
+            color: #94a3b8;
+        }
+
+        .log-level-info { color: #60a5fa; }
+        .log-level-warning { color: #fbbf24; }
+        .log-level-error { color: #f87171; }
+        .log-level-success { color: #34d399; }
+
+        .flow-arrows {
+            font-size: 2.5em;
+            color: #4f46e5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: flow 2s ease-in-out infinite;
+        }
+
+        @keyframes flow {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(5px); }
+        }
+
+        @media (max-width: 1024px) {
+            .architecture-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .flow-arrows {
+                transform: rotate(90deg);
+            }
+            
+            .server-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .cloud-selector {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .button-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Cloud Load Balancer Demo</h1>
+            <p>AWS ELB & GCP Cloud Load Balancing in Action</p>
+        </div>
+
+        <div class="cloud-selector">
+            <div class="cloud-tab active" data-cloud="aws">
+                <span>🚀</span> AWS Elastic Load Balancer
+            </div>
+            <div class="cloud-tab" data-cloud="gcp">
+                <span>☁️</span> GCP Cloud Load Balancing
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- AWS Section -->
+            <div class="cloud-section active" id="aws-section">
+                <div class="architecture-grid">
+                    <div class="clients-section">
+                        <h3 style="margin-bottom: 15px; color: #374151;">Internet Clients</h3>
+                        <div style="background: #fef3c7; padding: 25px; border-radius: 12px; border: 2px solid #f59e0b;">
+                            <div style="font-size: 2em; margin-bottom: 10px;">🌐</div>
+                            <div style="font-weight: 600; color: #92400e;">Global Users</div>
+                            <div style="font-size: 0.9em; color: #78716c; margin-top: 5px;">HTTP/HTTPS Requests</div>
+                        </div>
+                    </div>
+
+                    <div class="flow-arrows">→</div>
+
+                    <div class="load-balancer-section">
+                        <div class="lb-title">AWS Application Load Balancer</div>
+                        <div class="lb-type" id="aws-lb-type">ALB (Layer 7)</div>
+                        <div class="lb-algorithm" id="aws-algorithm">Round Robin</div>
+                    </div>
+
+                    <div class="flow-arrows">→</div>
+
+                    <div class="servers-section">
+                        <h3 style="margin-bottom: 15px; color: #374151;">EC2 Target Group</h3>
+                        <div class="server-grid" id="aws-servers">
+                            <div class="server" data-server="aws-1">
+                                <div class="server-header">
+                                    <span class="server-status healthy"></span>
+                                    <strong>EC2-1 (us-east-1a)</strong>
+                                </div>
+                                <div class="server-details">
+                                    <div>t3.medium</div>
+                                    <div class="load-bar">
+                                        <div class="load-fill" id="aws-load-1" style="width: 25%"></div>
+                                    </div>
+                                    <div>Load: <span id="aws-load-text-1">25%</span></div>
+                                </div>
+                            </div>
+                            <div class="server" data-server="aws-2">
+                                <div class="server-header">
+                                    <span class="server-status healthy"></span>
+                                    <strong>EC2-2 (us-east-1b)</strong>
+                                </div>
+                                <div class="server-details">
+                                    <div>t3.medium</div>
+                                    <div class="load-bar">
+                                        <div class="load-fill" id="aws-load-2" style="width: 30%"></div>
+                                    </div>
+                                    <div>Load: <span id="aws-load-text-2">30%</span></div>
+                                </div>
+                            </div>
+                            <div class="server" data-server="aws-3">
+                                <div class="server-header">
+                                    <span class="server-status healthy"></span>
+                                    <strong>EC2-3 (us-west-2a)</strong>
+                                </div>
+                                <div class="server-details">
+                                    <div>t3.large</div>
+                                    <div class="load-bar">
+                                        <div class="load-fill" id="aws-load-3" style="width: 20%"></div>
+                                    </div>
+                                    <div>Load: <span id="aws-load-text-3">20%</span></div>
+                                </div>
+                            </div>
+                            <div class="server" data-server="aws-4">
+                                <div class="server-header">
+                                    <span class="server-status healthy"></span>
+                                    <strong>EC2-4 (us-west-2b)</strong>
+                                </div>
+                                <div class="server-details">
+                                    <div>t3.large</div>
+                                    <div class="load-bar">
+                                        <div class="load-fill" id="aws-load-4" style="width: 15%"></div>
+                                    </div>
+                                    <div>Load: <span id="aws-load-text-4">15%</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="controls-section">
+                    <h3 class="controls-header">AWS ELB Controls</h3>
+                    <div class="button-grid">
+                        <button class="action-btn aws-btn" onclick="sendRequest('aws')">
+                            📤 Send Request
+                        </button>
+                        <button class="action-btn aws-btn" onclick="simulateTraffic('aws')">
+                            🚀 Traffic Burst
+                        </button>
+                        <button class="action-btn aws-btn" onclick="changeAlgorithm('aws')">
+                            ⚙️ Change Algorithm
+                        </button>
+                        <button class="action-btn aws-btn" onclick="toggleHealthCheck('aws')">
+                            🩺 Health Check
+                        </button>
+                        <button class="action-btn aws-btn" onclick="addInstance('aws')">
+                            ➕ Scale Out
+                        </button>
+                        <button class="action-btn aws-btn" onclick="resetDemo('aws')">
+                            🔄 Reset
+                        </button>
+                    </div>
+
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-value" id="aws-requests">0</div>
+                            <div class="metric-label">Total Requests</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="aws-healthy">4</div>
+                            <div class="metric-label">Healthy Targets</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="aws-avg-load">22%</div>
+                            <div class="metric-label">Avg CPU Load</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="aws-response-time">45ms</div>
+                            <div class="metric-label">Response Time</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="aws-throughput">1.2K</div>
+                            <div class="metric-label">RPS</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GCP Section -->
+            <div class="cloud-section" id="gcp-section">
+                <div class="architecture-grid">
+                    <div class="clients-section">
+                        <h3 style="margin-bottom: 15px; color: #374151;">Global Clients</h3>
+                        <div style="background: #e3f2fd; padding: 25px; border-radius: 12px; border: 2px solid #2196f3;">
+                            <div style="font-size: 2em; margin-bottom: 10px;">🌍</div>
+                            <div style="font-weight: 600; color: #1565c0;">Multi-region Users</div>
+                            <div style="font-size: 0.9em; color: #546e7a; margin-top: 5px;">HTTPS Requests</div>
+                        </div>
+                    </div>
+
+                    <div class="flow-arrows">→</div>
+
+                    <div class="load-balancer-section">
+                        <div class="lb-title">GCP Global Load Balancer</div>
+                        <div class="lb-type" id="gcp-lb-type">HTTP(S) LB</div>
+                        <div class="lb-algorithm" id="gcp-algorithm">Least Request</div>
+                    </div>
+
+                    <div class="flow-arrows">→</div>
+
+                    <div class="servers-section">
+                        <h3 style="margin-bottom: 15px; color: #374151;">Compute Engine Instances</h3>
+                        <div class="server-grid" id="gcp-servers">
+                            <div class="server" data-server="gcp-1">
+                                <div class="server-header">
+                                    <span class="server-status healthy"></span>
+                                    <strong>GCE-1 (us-central1)</strong>
+                                </div>
+                                <div class="server-details">
+                                    <div>n1-standard-2</div>
+                                    <div class="load-bar">
+                                        <div class="load-fill" id="gcp-load-1" style="width: 28%"></div>
+                                    </div>
+                                    <div>Load: <span id="gcp-load-text-1">28%</span></div>
+                                </div>
+                            </div>
+                            <div class="server" data-server="gcp-2">
+                                <div class="server-header">
+                                    <span class="server-status healthy"></span>
+                                    <strong>GCE-2 (europe-west1)</strong>
+                                </div>
+                                <div class="server-details">
+                                    <div>n1-standard-2</div>
+                                    <div class="load-bar">
+                                        <div class="load-fill" id="gcp-load-2" style="width: 22%"></div>
+                                    </div>
+                                    <div>Load: <span id="gcp-load-text-2">22%</span></div>
+                                </div>
+                            </div>
+                            <div class="server" data-server="gcp-3">
+                                <div class="server-header">
+                                    <span class="server-status healthy"></span>
+                                    <strong>GCE-3 (asia-southeast1)</strong>
+                                </div>
+                                <div class="server-details">
+                                    <div>n1-standard-4</div>
+                                    <div class="load-bar">
+                                        <div class="load-fill" id="gcp-load-3" style="width: 18%"></div>
+                                    </div>
+                                    <div>Load: <span id="gcp-load-text-3">18%</span></div>
+                                </div>
+                            </div>
+                            <div class="server" data-server="gcp-4">
+                                <div class="server-header">
+                                    <span class="server-status healthy"></span>
+                                    <strong>GCE-4 (australia-southeast1)</strong>
+                                </div>
+                                <div class="server-details">
+                                    <div>n1-standard-4</div>
+                                    <div class="load-bar">
+                                        <div class="load-fill" id="gcp-load-4" style="width: 25%"></div>
+                                    </div>
+                                    <div>Load: <span id="gcp-load-text-4">25%</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="controls-section">
+                    <h3 class="controls-header">GCP Load Balancer Controls</h3>
+                    <div class="button-grid">
+                        <button class="action-btn gcp-btn" onclick="sendRequest('gcp')">
+                            📤 Send Request
+                        </button>
+                        <button class="action-btn gcp-btn" onclick="simulateTraffic('gcp')">
+                            🚀 Global Traffic
+                        </button>
+                        <button class="action-btn gcp-btn" onclick="changeAlgorithm('gcp')">
+                            ⚙️ Change Algorithm
+                        </button>
+                        <button class="action-btn gcp-btn" onclick="toggleHealthCheck('gcp')">
+                            🩺 Health Check
+                        </button>
+                        <button class="action-btn gcp-btn" onclick="addInstance('gcp')">
+                            ➕ Auto Scale
+                        </button>
+                        <button class="action-btn gcp-btn" onclick="resetDemo('gcp')">
+                            🔄 Reset
+                        </button>
+                    </div>
+
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-value" id="gcp-requests">0</div>
+                            <div class="metric-label">Total Requests</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="gcp-healthy">4</div>
+                            <div class="metric-label">Healthy Backends</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="gcp-avg-load">23%</div>
+                            <div class="metric-label">Avg CPU Load</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="gcp-response-time">52ms</div>
+                            <div class="metric-label">Global Latency</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value" id="gcp-throughput">950</div>
+                            <div class="metric-label">RPS</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Section -->
+            <div class="config-section">
+                <div class="config-header">
+                    <h3 style="color: white;">Load Balancer Configuration</h3>
+                    <div class="config-tabs">
+                        <button class="config-tab active" onclick="showConfig('terraform')">Terraform</button>
+                        <button class="config-tab" onclick="showConfig('aws-cli')">AWS CLI</button>
+                        <button class="config-tab" onclick="showConfig('gcp-cli')">gcloud CLI</button>
+                    </div>
+                </div>
+                <div class="config-content" id="config-display">
+                    <pre id="terraform-config"># AWS Application Load Balancer with Terraform
+resource "aws_lb" "main" {
+  name               = "main-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb_sg.id]
+  subnets            = [aws_subnet.public_a.id, aws_subnet.public_b.id]
+
+  enable_deletion_protection = false
+  enable_http2              = true
+
+  tags = {
+    Environment = "production"
+    Name        = "main-alb"
+  }
+}
+
+resource "aws_lb_target_group" "app" {
+  name     = "app-targets"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    interval            = 30
+    matcher             = "200"
+    path                = "/health"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    timeout             = 5
+    unhealthy_threshold = 2
+  }
